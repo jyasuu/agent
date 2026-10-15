@@ -1,0 +1,139 @@
+{
+  "name": "codetools",
+  "runtime": "python3",
+  "entry": "plugin.py",
+  "tools": [
+    {
+      "name": "code_read",
+      "capability": "fs:read",
+      "scope_args": [
+        "path"
+      ],
+      "description": "Read a UTF-8 text file (up to 1 MB). With offset (1-based line) and/or limit (default 2000 lines) the result has numbered lines and says where to continue. A file must be read before code_edit can change it.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "code_edit",
+      "capability": "fs:write",
+      "scope_args": [
+        "path"
+      ],
+      "description": "Replace exact text in a file you have read with code_read. Fails if old_string is not found, or matches more than once unless replace_all is true. Keep indentation exactly as in the file; never include the line-number prefix. The old file is copied to .agent-undo/ first.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "old_string": {
+            "type": "string"
+          },
+          "new_string": {
+            "type": "string"
+          },
+          "replace_all": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "path",
+          "old_string",
+          "new_string"
+        ]
+      }
+    },
+    {
+      "name": "code_glob",
+      "capability": "fs:read",
+      "scope_args": [
+        "path"
+      ],
+      "recursive": true,
+      "description": "Find files by name pattern (for example **/*.rs) below a directory. Respects .gitignore. Newest first, at most 100.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern",
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "code_grep",
+      "capability": "fs:read",
+      "scope_args": [
+        "path"
+      ],
+      "recursive": true,
+      "description": "Search file contents with a regular expression in a directory or one file. include filters file names, for example *.py or *.{ts,tsx}. Respects .gitignore. At most 100 matches.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "include": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "pattern",
+          "path"
+        ]
+      }
+    },
+    {
+      "name": "code_tree",
+      "capability": "fs:read",
+      "scope_args": [
+        "path"
+      ],
+      "recursive": true,
+      "description": "Show the files and directories below a directory as an indented tree (default depth 3, at most 500 entries). Respects .gitignore.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    }
+  ]
+}

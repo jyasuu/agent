@@ -1,0 +1,40 @@
+[package]
+name = "agent"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "Pluggable, self-upgrading agent: stages 1 to 4 (loop, daemon, compaction, sub-agents, verifier, evals)"
+
+[lib]
+name = "agent_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "agent"
+path = "src/main.rs"
+
+[[bin]]
+name = "plugin_fs"
+path = "src/bin/plugin_fs.rs"
+
+[[bin]]
+name = "plugin_check"
+path = "src/bin/plugin_check.rs"
+
+[[bin]]
+name = "source_inbox"
+path = "src/bin/source_inbox.rs"
+
+[dependencies]
+anyhow = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+regex = "1"
+ignore = "0.4"
+glob = "0.3"
+
+[[bin]]
+name = "hook_guard"
+path = "src/bin/hook_guard.rs"
