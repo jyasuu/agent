@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/candidate.json",
+    "sha256": "88190afb013b2208926da5bfd0e46099a83f49540099efa92b62aa4f916c5a81",
+    "bytes": 8541
+  },
+  "artifact": {
+    "path": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/agent-system.html",
+    "sha256": "03a01ae41d456581cb6bb25628309465907a04843356b2e7eb12c4f14bc3debe",
+    "bytes": 836909
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/review-2/agent-system.finalize.json",
+    "summaryReceipt": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/review-2/agent-system.finalize-summary.json",
+    "browserCheckReceipt": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/review-2/agent-system.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.1.0",
+    "availableVersion": "3.1.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-17T08:31:15.940Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 6168,
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "resolvedCrossovers": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [
+        {
+          "left": {
+            "id": "runner_plugin",
+            "from": "runner",
+            "to": "plugin_fs",
+            "label": "fs · shell calls",
+            "collectionIndex": 3,
+            "artifactIndex": 4
+          },
+          "right": {
+            "id": "daemon_store",
+            "from": "daemon",
+            "to": "store",
+            "label": "claims queued sessions",
+            "collectionIndex": 6,
+            "artifactIndex": 7
+          },
+          "point": [
+            475,
+            268
+          ]
+        }
+      ],
+      "detours": [],
+      "truncated": false
+    },
+    "hints": [
+      "runner → plugin_fs crosses daemon → store: move the node of whichever is a branch, return, or second entrance to the other side of the main path, so that relationship runs through an empty corridor."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

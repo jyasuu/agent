@@ -1,0 +1,76 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/candidate.json",
+    "sha256": "bebbc5475a6c501362298e86e4b4560f0fbca30e8daf36f799d576077d50cc40",
+    "bytes": 8541
+  },
+  "artifact": {
+    "path": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/agent-system.html",
+    "sha256": "8cf95bc202eb8cf588523bd75c71208373130dd713cebda281dd9c3a5083fdc2",
+    "bytes": 836891
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/agent-system.finalize.json",
+    "summaryReceipt": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/agent-system.finalize-summary.json",
+    "browserCheckReceipt": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/agent-system.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.1.0",
+    "availableVersion": "3.1.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-17T08:31:15.940Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 6764,
+  "visualReviewRecommendation": {
+    "action": "inspect-route-readability",
+    "signals": {
+      "routesOverSuggestedBends": 1
+    },
+    "reason": "Automated gates passed, but crossings or detours still need perceptual review before claiming visual quality.",
+    "affectedRoutes": {
+      "crossings": [],
+      "detours": [
+        {
+          "relationship": {
+            "id": "runner_store",
+            "from": "runner",
+            "to": "store",
+            "label": "session log · spend ledger",
+            "collectionIndex": 5,
+            "artifactIndex": 6
+          },
+          "bends": 3,
+          "stretch": 1
+        }
+      ],
+      "truncated": false
+    },
+    "hints": [
+      "runner → store needs 3 bends: move node runner or store so they share a row or column with matching centers, or sit diagonally with a clear corner."
+    ],
+    "repair": "Trace these relationships at the desktop viewport. For Architecture, use references/architecture-layout-repair.md: reflow a blocked main path or tangled connected scene, and repair an isolated defect locally only when the surrounding composition is accepted. Preserve all semantic content and user-fixed geometry. Rerun finalize once after the edit."
+  }
+}

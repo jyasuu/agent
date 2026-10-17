@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "5788ac9f-87ea-441a-966f-939115805a56",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/candidate.json",
+  "output": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/agent-system.html",
+  "specification": {
+    "sha256": "ab9e4948fd920e4bd548092e0c27dda4b6ca3dd8a2049aec062e7d752fc4d8bf",
+    "bytes": 8549
+  },
+  "artifact": {
+    "sha256": "b87acad053060091813d3a2ff57b2a9f631499f8a53428a9b95a019eb732c312",
+    "bytes": 836935
+  }
+}

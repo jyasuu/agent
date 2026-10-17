@@ -1,0 +1,306 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Pluggable Self-Upgrading Agent — System Architecture",
+    "output": ".archify/architecture-agent-system-20261017-080907/agent-system.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/jyasuu/agent",
+      "provider": "github",
+      "revision": "fa89446ef24f7ac5e6d0728da0e47a6e078c3672"
+    }
+  },
+  "layout": {
+    "mode": "grid",
+    "origin": [40, 40],
+    "cols": 5,
+    "gapX": 40,
+    "gapY": 56,
+    "cellW": 210,
+    "cellH": 88
+  },
+  "components": [
+    {
+      "id": "owner",
+      "type": "external",
+      "label": "Owner",
+      "sublabel": "human · grants & approvals",
+      "icon": "person",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "id": "cli",
+      "type": "frontend",
+      "label": "CLI",
+      "sublabel": "run · daemon · submit · grant",
+      "row": 0,
+      "col": 1,
+      "sources": [
+        { "path": "src/main.rs", "line": 294, "label": "cmd_run" },
+        { "path": "src/main.rs", "line": 358, "label": "cmd_daemon" }
+      ]
+    },
+    {
+      "id": "model",
+      "type": "external",
+      "label": "Model Provider",
+      "sublabel": "chat completions with tools",
+      "row": 0,
+      "col": 2,
+      "sources": [
+        { "path": "src/provider.rs", "line": 54, "label": "ModelProvider trait" }
+      ]
+    },
+    {
+      "id": "gate",
+      "type": "security",
+      "label": "Permission Gate",
+      "sublabel": "capability policy per tool call",
+      "row": 1,
+      "col": 0,
+      "sources": [
+        { "path": "src/gate.rs", "line": 26, "label": "Gate struct" },
+        { "path": "src/gate.rs", "line": 47, "label": "holds()" }
+      ]
+    },
+    {
+      "id": "runner",
+      "type": "backend",
+      "label": "Runner",
+      "sublabel": "loop · compaction · tools",
+      "tag": "stages 1–6",
+      "row": 1,
+      "col": 1,
+      "sources": [
+        { "path": "src/runner.rs", "line": 450, "label": "run_session" },
+        { "path": "src/runner.rs", "line": 525, "label": "run_loop_inner" }
+      ]
+    },
+    {
+      "id": "daemon",
+      "type": "backend",
+      "label": "Daemon",
+      "sublabel": "claims queued sessions",
+      "row": 1,
+      "col": 2,
+      "sources": [
+        { "path": "src/daemon.rs", "line": 57, "label": "run loop" },
+        { "path": "src/daemon.rs", "line": 160, "label": "spawns Runner" }
+      ]
+    },
+    {
+      "id": "verifier",
+      "type": "backend",
+      "label": "Verifier",
+      "sublabel": "read-only · fresh context",
+      "row": 2,
+      "col": 0,
+      "sources": [
+        { "path": "src/runner.rs", "line": 44, "label": "VERIFIER_SYSTEM" },
+        { "path": "src/runner.rs", "line": 1488, "label": "verify_once" }
+      ]
+    },
+    {
+      "id": "plugin_fs",
+      "type": "backend",
+      "label": "plugin_fs",
+      "sublabel": "fs · shell tools (untrusted)",
+      "tag": "plugin",
+      "row": 2,
+      "col": 3,
+      "sources": [
+        { "path": "src/bin/plugin_fs.rs", "line": 34, "label": "tool manifest" }
+      ]
+    },
+    {
+      "id": "plugin_check",
+      "type": "security",
+      "label": "plugin_check",
+      "sublabel": "owner's checks · no network",
+      "tag": "plugin",
+      "row": 2,
+      "col": 4,
+      "sources": [
+        { "path": "src/bin/plugin_check.rs", "line": 21, "label": "check_exec" },
+        { "path": "src/bin/plugin_check.rs", "line": 65, "label": "unshare sandbox" }
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Store",
+      "sublabel": "session log · queue · spend",
+      "row": 2,
+      "col": 1,
+      "sources": [
+        { "path": "src/store.rs", "line": 81, "label": "Store" },
+        { "path": "src/store.rs", "line": 359, "label": "append_log" },
+        { "path": "src/store.rs", "line": 519, "label": "record_spend" }
+      ]
+    },
+    {
+      "id": "audit",
+      "type": "database",
+      "label": "Audit Log",
+      "sublabel": "hash-chained · audit-verify",
+      "row": 2,
+      "col": 2,
+      "sources": [
+        { "path": "src/audit.rs", "line": 44, "label": "hash chain" },
+        { "path": "src/audit.rs", "line": 125, "label": "verify()" }
+      ]
+    },
+    {
+      "id": "delegate",
+      "type": "security",
+      "label": "Delegate",
+      "sublabel": "answers inside owner rules",
+      "row": 3,
+      "col": 0,
+      "sources": [
+        { "path": "src/delegate.rs", "line": 148, "label": "Delegate" },
+        { "path": "src/delegate.rs", "line": 378, "label": "DelegatingApprover" }
+      ]
+    },
+    {
+      "id": "upgrade",
+      "type": "backend",
+      "label": "Upgrade Pipeline",
+      "sublabel": "propose → approve → deploy",
+      "row": 3,
+      "col": 1,
+      "sources": [
+        { "path": "src/upgrade.rs", "line": 790, "label": "run_pipeline" },
+        { "path": "src/upgrade.rs", "line": 927, "label": "approve" }
+      ]
+    },
+    {
+      "id": "mcp",
+      "type": "external",
+      "label": "MCP Servers",
+      "sublabel": "stdio · inspected first",
+      "row": 3,
+      "col": 2,
+      "sources": [
+        { "path": "src/plugin.rs", "line": 671, "label": "inspect_mcp" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Trusted Core (human-only)",
+      "wraps": ["gate", "runner", "daemon"],
+      "pad": 16
+    },
+    {
+      "kind": "security-group",
+      "label": "Plugin Sandbox (bubblewrap)",
+      "wraps": ["plugin_fs", "plugin_check"],
+      "pad": 16
+    },
+    {
+      "kind": "region",
+      "label": "Agent Home (.agent/)",
+      "wraps": ["store", "audit"],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "id": "owner_cli",
+      "from": "owner",
+      "to": "cli",
+      "label": "task / command",
+      "variant": "emphasis",
+      "labelDy": 56
+    },
+    {
+      "id": "cli_runner",
+      "from": "cli",
+      "to": "runner",
+      "label": "enqueue event · run session",
+      "variant": "emphasis"
+    },
+    {
+      "id": "runner_gate",
+      "from": "runner",
+      "to": "gate",
+      "label": "every tool call",
+      "variant": "security"
+    },
+    {
+      "id": "runner_plugin",
+      "from": "runner",
+      "to": "plugin_fs",
+      "label": "fs · shell calls"
+    },
+    {
+      "id": "runner_model",
+      "from": "runner",
+      "to": "model",
+      "label": "chat completions (tools)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "runner_store",
+      "from": "runner",
+      "to": "store",
+      "label": "session log · spend ledger"
+    },
+    {
+      "id": "daemon_runner",
+      "from": "daemon",
+      "to": "runner",
+      "label": "claims sessions · runs them",
+      "variant": "dashed"
+    },
+    {
+      "id": "runner_verifier",
+      "from": "runner",
+      "to": "verifier",
+      "label": "read-only verify",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Trust model",
+      "items": [
+        "Core under src/ is small and fixed; only the owner edits it — that is the whole trust argument.",
+        "Plugins are untrusted out-of-process binaries; the host spawns, inspects and talks to them over JSON-RPC.",
+        "Tool output returns as data for the next prompt — the prompt never executes it."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Main path (stages 1–6)",
+      "items": [
+        "CLI enqueues one event; the Runner drives plan → act → observe → verify → summarize in a single session.",
+        "Every tool call is checked by the Gate before it runs; plugins execute in their own sandbox.",
+        "The session log is append-only; context and history are derived views rebuilt on resume."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Approvals & verification",
+      "items": [
+        "Irreversible actions ask the owner, or answer from rules via Delegate; the daemon owns the approval queue.",
+        "A read-only verifier with fresh context re-checks any claim of 'done' before it is accepted.",
+        "check_exec runs the owner's checks with no network and an empty environment."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Self-upgrade pipeline",
+      "items": [
+        "The agent proposes plugin upgrades; the owner runs static → contract → eval → canary → approve → deploy.",
+        "Snapshots live in the agent home; rollback restores the previous version in one step.",
+        "Spend budgets and caps are enforced by the core, never by a plugin."
+      ]
+    }
+  ]
+}

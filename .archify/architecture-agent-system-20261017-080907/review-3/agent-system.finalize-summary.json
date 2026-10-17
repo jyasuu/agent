@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "finalize",
+  "status": "pass",
+  "type": "architecture",
+  "quality": "showcase",
+  "specification": {
+    "path": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/candidate.json",
+    "sha256": "ab9e4948fd920e4bd548092e0c27dda4b6ca3dd8a2049aec062e7d752fc4d8bf",
+    "bytes": 8549
+  },
+  "artifact": {
+    "path": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/agent-system.html",
+    "sha256": "b87acad053060091813d3a2ff57b2a9f631499f8a53428a9b95a019eb732c312",
+    "bytes": 836935
+  },
+  "gates": {
+    "validate": "pass",
+    "deliver": "pass",
+    "check": "pass",
+    "browser-check": "pass"
+  },
+  "diagnostics": [],
+  "diagnosticSummary": {
+    "total": 0,
+    "shown": 0,
+    "truncated": false
+  },
+  "evidence": {
+    "receipt": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/review-3/agent-system.finalize.json",
+    "summaryReceipt": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/review-3/agent-system.finalize-summary.json",
+    "browserCheckReceipt": "/workspaces/agent/.archify/architecture-agent-system-20261017-080907/review-3/agent-system.browser-check.json"
+  },
+  "update": {
+    "status": "current",
+    "installedVersion": "3.1.0",
+    "availableVersion": "3.1.0",
+    "releaseNotes": null,
+    "checkedAt": "2026-10-17T08:31:15.940Z",
+    "source": "cache",
+    "noticeRequired": false,
+    "noticeText": null
+  },
+  "visualReview": "not-requested",
+  "durationMs": 5998
+}
