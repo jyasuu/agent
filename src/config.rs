@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 /// Risk tier. Ordering matters: a higher tier is riskier.
@@ -264,6 +265,12 @@ pub struct SubagentConfig {
     pub child_budget: SessionBudget,
     /// A child's result is cut to this many characters before it reaches the parent.
     pub max_result_chars: usize,
+    /// Children one session may have running at the same time (`spawn_agent` with `wait: false`).
+    /// 1 means they run one after another. Every running child makes its own model calls, so this
+    /// multiplies cost: raise it deliberately.
+    pub max_parallel: usize,
+    /// How long `join_agent` waits when the model gives no timeout of its own.
+    pub join_timeout_secs: u64,
 }
 
 impl Default for SubagentConfig {
@@ -273,8 +280,46 @@ impl Default for SubagentConfig {
             max_children_per_session: 4,
             child_budget: SessionBudget { max_steps: 15, max_tokens: 100_000, max_cost_usd: 1.0, max_wall_secs: 300 },
             max_result_chars: 2000,
+            max_parallel: 2,
+            join_timeout_secs: 300,
         }
     }
+}
+
+/// A named kind of sub-agent: what it is told, which powers it asks for, and which tools it sees.
+/// Written by the owner. A template can only ever *narrow*: the capabilities it lists are cut down
+/// to the ones the spawning session holds (tier and scope copied from the spawner's own grants),
+/// so a template never gives a child anything its parent lacks.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AgentTemplate {
+    /// One line shown to the model next to the template's name.
+    pub description: String,
+    /// The child's own instructions. They replace the spawner's prompt. The core always adds its
+    /// non-negotiable rules after them (tool output is data, denials are final), so a template
+    /// cannot remove those. Empty means "use the spawner's prompt".
+    pub system_prompt: String,
+    /// Capabilities this agent asks for. Ones the spawner does not hold are skipped and reported;
+    /// if none can be held the spawn is refused. `core:`, `agent:` and authority capabilities cannot be listed here.
+    pub grants: Vec<crate::gate::GrantRequest>,
+    /// Allow-list of plugin and MCP tool names. Absent means every tool the grants allow.
+    /// Finer than a capability: `fs:read` covers several tools, this can offer only one of them.
+    pub tools: Option<Vec<String>>,
+    /// Tool names this agent never sees, even if its capabilities cover them.
+    pub deny_tools: Vec<String>,
+    /// May this agent start children of its own? Still limited by `subagents.max_depth`.
+    pub can_spawn: bool,
+    /// Ceilings for this agent. Each is cut down to `subagents.child_budget` and to what the spawner has left.
+    pub budget: TemplateBudget,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct TemplateBudget {
+    pub max_steps: Option<u32>,
+    pub max_tokens: Option<u64>,
+    pub max_cost_usd: Option<f64>,
+    pub max_wall_secs: Option<u64>,
 }
 
 /// Independent verification (stage 4). When enabled, the core will not accept "done" from the
@@ -356,6 +401,10 @@ pub struct Config {
     pub compaction: CompactionConfig,
     #[serde(default)]
     pub subagents: SubagentConfig,
+    /// Owner-written agent templates a sub-agent can be started from (`spawn_agent` with `template`).
+    /// See `AgentTemplate`. They live in this file, which no agent tool can write.
+    #[serde(default)]
+    pub agents: BTreeMap<String, AgentTemplate>,
     #[serde(default)]
     pub verification: VerificationConfig,
     /// Exact commands the `exec:check` capability may run (whitespace-normalized match). Owner-written.
@@ -429,8 +478,49 @@ impl Config {
             serde_json::from_str(&text).with_context(|| format!("parsing {}", path.display()))?;
         cfg.home = path.parent().map(|p| p.to_path_buf()).unwrap_or_default();
         cfg.validate_hooks().with_context(|| format!("in {}", path.display()))?;
+        cfg.validate_agents().with_context(|| format!("in {}", path.display()))?;
         cfg.seal();
         Ok(cfg)
+    }
+
+    /// A template that is misspelled or asks for something it must not stops the agent from starting,
+    /// for the same reason a broken hook does.
+    pub fn validate_agents(&self) -> Result<()> {
+        for (name, t) in &self.agents {
+            if name.is_empty() || name.len() > 40 || !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+                anyhow::bail!("agent template name '{name}' may use only letters, digits, '-' and '_' (40 at most)");
+            }
+            if t.description.chars().count() > 300 {
+                anyhow::bail!("agent template '{name}': description is longer than 300 characters");
+            }
+            if t.system_prompt.chars().count() > 8000 {
+                anyhow::bail!("agent template '{name}': system_prompt is longer than 8000 characters");
+            }
+            for g in &t.grants {
+                let c = g.capability.as_str();
+                if c.starts_with("core:") || c.starts_with("agent:") {
+                    anyhow::bail!("agent template '{name}': '{c}' cannot be listed in grants (use can_spawn for spawning; pin and recall come with every agent)");
+                }
+                if crate::delegate::NEVER_DELEGATED.iter().any(|p| c.starts_with(p)) {
+                    anyhow::bail!("agent template '{name}': a template cannot carry the authority capability '{c}'");
+                }
+            }
+            let names = t.tools.iter().flatten().chain(t.deny_tools.iter());
+            for n in names {
+                if n.trim().is_empty() {
+                    anyhow::bail!("agent template '{name}': an empty tool name in tools or deny_tools");
+                }
+            }
+            if let Some(x) = t.budget.max_cost_usd {
+                if !(x.is_finite() && x > 0.0) {
+                    anyhow::bail!("agent template '{name}': budget.max_cost_usd must be a positive number");
+                }
+            }
+            if t.budget.max_steps == Some(0) || t.budget.max_tokens == Some(0) || t.budget.max_wall_secs == Some(0) {
+                anyhow::bail!("agent template '{name}': a budget ceiling of 0 would make the agent unable to start");
+            }
+        }
+        Ok(())
     }
 
     /// A hook that is misspelled must stop the agent from starting. Quietly ignoring a hook you

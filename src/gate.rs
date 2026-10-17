@@ -1,12 +1,12 @@
 use crate::config::{Grant, Tier};
 use crate::plugin::ToolEntry;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::{Component, Path, PathBuf};
 
 /// What a parent asks for when it spawns a child: a capability it holds, optionally
 /// narrowed to a sub-path of the scope it holds it for.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GrantRequest {
     pub capability: String,
     #[serde(default)]

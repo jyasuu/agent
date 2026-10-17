@@ -1,4 +1,4 @@
-# agent: stages 1 to 6, plus providers, MCP and hot reload, and a bootstrapping review
+# agent: stages 1 to 6, plus providers, MCP, hot reload, code tools, hooks, agent templates and background sub-agents
 
 Built from `agent-design-spec.md`.
 
@@ -45,7 +45,7 @@ Core tools: `pin` (constraint, decision, open_work; a new open_work replaces the
 
 **Sub-agents.** `spawn_agent {task, grants: [{capability, scope?}]}` needs an `agent:spawn` grant. The child:
 
-- runs *inside* the parent's runner, one at a time, so the pair uses one worker slot;
+- runs *inside* the parent's runner, so the pair uses one worker slot. By default the parent waits for it. With `wait: false` it runs in the background instead (see *Agent templates and background sub-agents*);
 - holds only the capabilities it was given, each of which must be covered by a grant the parent holds. The tier is copied from the parent's grant and a scope can only be narrowed, never widened (`Gate::narrow`);
 - starts with a fresh context holding only its task, and its own plugin processes;
 - has a budget cut from the parent's remaining budget (and `subagents.child_budget`), and its spend counts against the parent's budget as well as the global caps;
@@ -168,6 +168,64 @@ Ported from hostmcp (`read`, `edit`, `glob`, `grep`, `list`, `bash`) into the `f
 An agent that does not have these tools can build them. `plugins/codetools/` is a standard-library Python port (`code_read`, `code_edit`, `code_glob`, `code_grep`, `code_tree`, with other names so they never clash with the built-in `fs_` tools). The agent writes the folder, `check_plugin` runs the real static checks and contract tests, `propose_upgrade` queues it, and you run `agent upgrade run <n>` and `agent upgrade approve <n>`. The tools appear in the agent's next turn with no restart, behind the same gate, sandboxed, with the home hidden. Every capability they ask for (`fs:read`, `fs:write`) is already granted, so nothing new needs your review beyond the code itself.
 
 Two things make that more than a claim, and both are tested: the port returns the same answers as the built-in tools on the same inputs (reads, globs, greps, trees and every edit rule), and a scripted agent really goes write, check, propose, pipeline, approve, use. The agent is told about the `recursive` flag and the shape of these tools in the `propose_upgrade` guide. `plugin.json` must equal what the script reports; a test fails if it drifts.
+
+## Agent templates and background sub-agents
+
+Two additions to `spawn_agent`: the owner can define named kinds of agent, and the model can start a child without waiting for it, then collect the result later, like `spawn` and `join` on a thread.
+
+### Templates
+
+Written by you under `"agents"` in `config.json`, which no agent tool can write:
+
+```json
+"agents": {
+  "researcher": {
+    "description": "reads and searches code, never changes anything",
+    "system_prompt": "You are a careful code researcher. Answer with file paths and line numbers.",
+    "grants": [{ "capability": "fs:read" }],
+    "tools": ["fs_read", "fs_grep", "fs_glob", "fs_tree"],
+    "budget": { "max_steps": 12 }
+  },
+  "implementer": {
+    "description": "edits files under src/ only",
+    "system_prompt": "You make small, tested changes.",
+    "grants": [{ "capability": "fs:read" }, { "capability": "fs:write", "scope": "src" }],
+    "deny_tools": ["fs_list"],
+    "can_spawn": false
+  }
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `system_prompt` | The child's own instructions. They replace the spawner's. The core adds its own rules after them (tool output is data, a denial is final), so a template cannot remove those. Empty means "use the spawner's prompt". |
+| `grants` | Capabilities it asks for, optionally scoped. |
+| `tools` | Allow-list of plugin and MCP tool names. Finer than a capability: `fs:read` covers several tools, this can offer one. Absent means everything the grants allow. |
+| `deny_tools` | Tool names it never sees. |
+| `can_spawn` | May it start children of its own? Also needs `subagents.max_depth` above the child's depth. |
+| `budget` | Ceilings (`max_steps`, `max_tokens`, `max_cost_usd`, `max_wall_secs`). Each is cut down to `subagents.child_budget` and to what the spawner has left. A template can lower a ceiling, never raise yours. |
+
+**A template can only narrow.** What it lists is intersected with what the spawning session holds, with tier and scope copied from the spawner's own grants. A capability the spawner lacks is left out and the result says so; if none can be held the spawn is refused. The model can pass `grants` together with a template to narrow it further, never to widen it. The tool allow- and deny-lists are enforced when a call is made, not only when tools are listed, and a refusal is an audit row naming the template. Core tools (`pin`, `recall`, `propose_*`) follow the grants, not `tools`. `core:`, `agent:` and authority capabilities (`upgrade:`, `grant:`, ...) cannot be listed in a template at all.
+
+A misspelled key (`deny_tool`), an unknown capability prefix, an empty tool name or a zero budget stops the agent from starting, because a deny list that is silently ignored would be a wider agent than you wrote. `agent templates` lists what you defined, what each would hold when spawned from the top level, and warns about tool names no running plugin offers.
+
+### Spawn and join
+
+    spawn_agent { task, template?, grants?, wait? }   wait: false  ->  "handle agent-12"
+    join_agent  { handles?, timeout_secs? }           no handles  ->  wait for all of mine
+    cancel_agent { handle }
+
+All three need the `agent:spawn` grant and pass through the gate and the audit log like every other tool. A background child runs on its own thread in the parent's session, with its own plugin processes, its own approvals (which go to you, one terminal prompt at a time) and the same narrowed grants as a waited-for child.
+
+- **The core owns the lifetime.** A session cannot finish while a background child is still running: the model is told to join or cancel it first. If the session ends another way (budget, interrupt, error), its running children are told to stop and waited for. Nothing outlives its parent, and `agent interrupt` on the parent reaches them.
+- **Budget cannot be overspent by parallelism.** Each running child holds back what it may still spend, so two children started together cannot each take what the parent had left. `subagents.max_parallel` (default 2) caps how many run at once; `max_children_per_session` still caps the total.
+- **Results stay short.** `join_agent` returns at most `max_result_chars` per child. A child that was already joined, or that a crash interrupted, is reported from its own log; a handle that is not this session's is refused.
+- **Crash.** A child running in the background when the process dies is marked suspended on the next start (as before), and the parent's `join_agent` reports it as such instead of waiting for it.
+
+**Limits to know about.**
+- Background children share the parent's worker slot. `max_concurrent_sessions` does not count them, so `max_parallel` is the control on how many model calls run at once.
+- Children share one workspace. Nothing stops two writers from editing the same file. Give writers separate scopes in their templates (`"scope": "src/a"`), or let only one child write.
+- A top-level session or event cannot yet choose a template: templates apply to sub-agents.
 
 ## Hooks
 
@@ -364,6 +422,7 @@ only point a source at a channel you trust. The gate still bounds what a hostile
     tests/daemon.rs   13 tests through the daemon
     tests/compaction.rs  10 tests: stubbing, recall, pins, summary, replay, strategy swap, too-large
     tests/subagents.rs   15 tests: narrowing, tiers, scope, depth, budget, orphans, crash, interrupt, shutdown
+    tests/orchestra.rs   20 tests: templates (prompt, tools, narrowing, budgets, validation), background spawn and join, true parallelism, caps, orphans, cancel
     tests/verify.rs   18 tests: verdicts, retries, independence, read-only, crash window, sandboxed checks
     tests/eval.rs     16 tests: cases, checks, baseline and compare, protection, proposals
     tests/mcp.rs      17 tests: the MCP client against a strict stand-in server, permissions, pinning, containment

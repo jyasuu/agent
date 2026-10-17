@@ -49,6 +49,7 @@ usage: agent [--home DIR] <command>
   upgrade <list|show|run|approve|reject|rollback|history>
                        review and deploy plugins the agent wrote (see README)
 
+  templates            list the agent templates a sub-agent can be started from, and what each would hold
   mcp inspect <server> start an MCP server from the config and show what it advertises, with the hash to pin
   model-check          try the configured provider and model: reply, tool call, tool result
 
@@ -180,6 +181,7 @@ fn real_main() -> Result<()> {
         "upgrade" => cmd_upgrade(&home, rest),
         "model-check" => cmd_model_check(&home),
         "mcp" => cmd_mcp(&home, rest),
+        "templates" => cmd_templates(&home),
         "audit-verify" => {
             let audit = AuditLog::open(&home.join("audit.db"))?;
             let n = audit.verify()?;
@@ -210,6 +212,7 @@ fn cmd_init(home: &Path) -> Result<()> {
         workspace,
         sources: vec![],
         hooks: vec![],
+        agents: Default::default(),
         max_concurrent_sessions: 2,
         approval_timeout_secs: 600,
         plugins: vec![
@@ -666,6 +669,49 @@ fn cmd_model_check(home: &Path) -> Result<()> {
         bail!("this provider and model cannot drive the agent yet (see above)");
     }
     println!("all steps passed: this provider and model can drive the agent");
+    Ok(())
+}
+
+/// `agent templates`: every template in the config, what it would hold when spawned from the top-level
+/// session, and any tool name it mentions that no running plugin offers (usually a typo).
+fn cmd_templates(home: &Path) -> Result<()> {
+    let cfg = Config::load(&home.join("config.json"))?;
+    if cfg.agents.is_empty() {
+        println!("no agent templates. Add them under \"agents\" in {} (see the README).", home.join("config.json").display());
+        return Ok(());
+    }
+    let known: Option<std::collections::HashSet<String>> =
+        agent_core::plugin::PluginHost::start_for(&cfg).ok().map(|h| h.specs().into_iter().map(|t| t.name).collect());
+    for (name, t) in &cfg.agents {
+        println!("{name}{}", if t.description.is_empty() { String::new() } else { format!(": {}", t.description) });
+        let mut holds = Vec::new();
+        let mut lacks = Vec::new();
+        for g in &t.grants {
+            match cfg.grants.iter().filter(|x| x.capability == g.capability).map(|x| x.tier.as_str()).max() {
+                Some(tier) => holds.push(format!("{} ({tier}{})", g.capability, g.scope.as_ref().map(|s| format!(", {s}")).unwrap_or_default())),
+                None => lacks.push(g.capability.clone()),
+            }
+        }
+        println!("    holds when spawned from the top level: {}", if holds.is_empty() { "nothing".into() } else { holds.join(", ") });
+        if !lacks.is_empty() {
+            println!("    asks for, but the top level does not hold: {}", lacks.join(", "));
+        }
+        match &t.tools {
+            Some(list) => println!("    tools: only {}", list.join(", ")),
+            None => println!("    tools: all that its capabilities allow"),
+        }
+        if !t.deny_tools.is_empty() {
+            println!("    never sees: {}", t.deny_tools.join(", "));
+        }
+        println!("    can spawn: {}   prompt: {}", t.can_spawn, if t.system_prompt.trim().is_empty() { "the spawner's".to_string() } else { format!("own ({} chars)", t.system_prompt.chars().count()) });
+        if let Some(known) = &known {
+            for n in t.tools.iter().flatten().chain(t.deny_tools.iter()) {
+                if !known.contains(n) {
+                    println!("    WARNING: no running plugin offers a tool named '{n}'");
+                }
+            }
+        }
+    }
     Ok(())
 }
 
